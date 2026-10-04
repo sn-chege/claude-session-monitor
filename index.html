@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Claude Sessions</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+  try { const t = localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.dataset.theme = t; } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+</script>
+<style>
+  :root {
+    --bg:#0b0d12; --bg2:#10131a; --card:rgba(255,255,255,.045); --card-hi:rgba(255,255,255,.07);
+    --line:rgba(255,255,255,.09); --text:#e9ecf3; --muted:#8b93a7;
+    --ok:#34d399; --warn:#fbbf24; --hot:#f43f5e; --accent:#8b5cf6; --accent2:#22d3ee;
+  }
+  :root[data-theme="light"] {
+    color-scheme:light;
+    --bg:#f4f5f9; --bg2:#fff; --card:rgba(255,255,255,.85); --card-hi:#fff; --line:rgba(20,24,40,.1);
+    --text:#161a26; --muted:#667085; --ok:#059669; --warn:#d97706; --hot:#e11d48;
+  }
+  :root[data-theme="dark"] { color-scheme:dark; }
+  :root[data-theme="light"] body { background:
+    radial-gradient(900px 500px at 10% -10%, rgba(139,92,246,.14), transparent 60%),
+    radial-gradient(800px 500px at 100% 0%, rgba(34,211,238,.12), transparent 55%), var(--bg); background-attachment:fixed; }
+  :root[data-theme="light"] .card { box-shadow:0 1px 3px rgba(20,24,40,.06), 0 8px 24px -12px rgba(20,24,40,.12); }
+  .right { display:flex; align-items:center; gap:14px; }
+  #theme { width:38px; height:38px; padding:0; border-radius:50%; font-size:17px; line-height:1; background:var(--card); }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; color:var(--text); font:14px/1.4 -apple-system,BlinkMacSystemFont,"Inter",sans-serif;
+         background:
+           radial-gradient(900px 500px at 10% -10%, rgba(139,92,246,.22), transparent 60%),
+           radial-gradient(800px 500px at 100% 0%, rgba(34,211,238,.14), transparent 55%),
+           var(--bg);
+         background-attachment:fixed; }
+  .wrap { max-width:1280px; margin:0 auto; padding:28px 24px 60px; }
+
+  header { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
+  h1 { margin:0; font-size:22px; font-weight:700; letter-spacing:-.02em; display:flex; align-items:center; gap:10px; }
+  h1 .grad { background:linear-gradient(90deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .live { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--ok); box-shadow:0 0 0 0 var(--ok); animation:pulse 2s infinite; }
+  .dot.off { background:var(--hot); animation:none; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 60%,transparent)} 70%,100%{box-shadow:0 0 0 8px transparent} }
+
+  .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:20px; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; backdrop-filter:blur(12px); }
+  .tile span { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+  .tile b { display:block; font-size:26px; font-weight:700; letter-spacing:-.02em; margin-top:4px; font-variant-numeric:tabular-nums; }
+  .tile.hot b { color:var(--hot); }
+  .tile.hot { border-color:color-mix(in srgb,var(--hot) 45%,transparent); }
+
+  .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; align-items:center; }
+  .toolbar input, .toolbar select { font:inherit; color:var(--text); background:var(--card); border:1px solid var(--line);
+         border-radius:10px; padding:8px 12px; outline:none; }
+  .toolbar input { flex:1; min-width:180px; max-width:340px; }
+  .toolbar input:focus, .toolbar select:focus { border-color:var(--accent); }
+  .chip { cursor:pointer; user-select:none; padding:8px 14px; border-radius:999px; border:1px solid var(--line); background:var(--card);
+          color:var(--muted); font-size:13px; transition:.15s; }
+  .chip.on { color:#fff; background:linear-gradient(90deg,var(--accent),#6366f1); border-color:transparent; }
+
+  #grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; }
+  .card { position:relative; overflow:hidden; background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px;
+          backdrop-filter:blur(14px); transition:transform .18s, border-color .18s, background .18s; animation:in .35s ease both; }
+  .card:hover { transform:translateY(-3px); background:var(--card-hi); }
+  .card.risk { border-color:color-mix(in srgb,var(--hot) 50%,transparent);
+               box-shadow:0 0 28px -8px color-mix(in srgb,var(--hot) 55%,transparent); }
+  @keyframes in { from { opacity:0; transform:translateY(8px); } }
+
+  .top { display:flex; gap:14px; align-items:flex-start; }
+  .titles { flex:1; min-width:0; }
+  .name { font-weight:650; font-size:15px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .proj { margin-top:4px; font-size:12px; color:var(--muted); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .pill { display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:600;
+          background:rgba(128,128,128,.16); color:var(--muted); }
+  .pill i { width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .pill.busy { color:var(--accent2); background:color-mix(in srgb,var(--accent2) 15%,transparent); }
+  .pill.busy i { animation:blink 1s infinite; }
+  .pill.idle { color:var(--ok); background:color-mix(in srgb,var(--ok) 14%,transparent); }
+  .pill.snz { color:var(--warn); background:color-mix(in srgb,var(--warn) 14%,transparent); }
+  @keyframes blink { 50% { opacity:.25; } }
+
+  .ring { position:relative; width:62px; height:62px; flex:none; }
+  .ring svg { transform:rotate(-90deg); }
+  .ring circle { fill:none; stroke-width:6; stroke-linecap:round; }
+  .ring .bg { stroke:var(--line); }
+  .ring .fg { transition:stroke-dashoffset .6s ease, stroke .3s; }
+  .ring em { position:absolute; inset:0; display:grid; place-items:center; font-style:normal; font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .ring small { position:absolute; left:0; right:0; bottom:-14px; text-align:center; font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+
+  .rec { margin:16px 0 0; padding:10px 12px; border-radius:12px; font-size:12px; border:1px solid var(--line);
+         background:rgba(128,128,128,.08); }
+  .rec b { display:block; font-size:13px; margin-bottom:2px; }
+  .rec span { color:var(--muted); }
+  .rec.bad { background:color-mix(in srgb,var(--hot) 12%,transparent); border-color:color-mix(in srgb,var(--hot) 40%,transparent); }
+  .rec.bad b { color:var(--hot); }
+  .rec.warn { background:color-mix(in srgb,var(--warn) 12%,transparent); border-color:color-mix(in srgb,var(--warn) 40%,transparent); }
+  .rec.warn b { color:var(--warn); }
+  .rec.ok b { color:var(--ok); }
+  .rec.info b { color:var(--accent2); }
+  button.primary { background:linear-gradient(90deg,var(--accent),#6366f1); color:#fff; border-color:transparent; }
+  button.primary:hover { filter:brightness(1.12); background:linear-gradient(90deg,var(--accent),#6366f1); }
+  .meters { margin:16px 0 14px; display:grid; gap:9px; }
+  .meter { display:grid; grid-template-columns:62px 1fr auto; gap:10px; align-items:center; font-size:11px; color:var(--muted); }
+  .track { height:6px; border-radius:99px; background:var(--line); overflow:hidden; }
+  .track i { display:block; height:100%; border-radius:99px; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .6s ease; }
+  .track i.hot { background:linear-gradient(90deg,var(--warn),var(--hot)); }
+  .meter b { color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
+
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:14px; }
+  .stat { background:rgba(128,128,128,.09); border-radius:10px; padding:8px 9px; }
+  .stat span { display:block; font-size:9.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  .stat b { font-size:13px; font-weight:650; font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+  .meta { font-size:11px; color:var(--muted); margin-bottom:14px; word-break:break-all; }
+  .meta code { font:11px ui-monospace,SFMono-Regular,Menlo,monospace; }
+
+  .btns { display:flex; gap:6px; flex-wrap:wrap; }
+  button { font:inherit; font-size:12px; font-weight:550; padding:6px 11px; border-radius:9px; border:1px solid var(--line);
+           background:transparent; color:var(--text); cursor:pointer; transition:.15s; }
+  button:hover { background:rgba(128,128,128,.18); border-color:var(--accent); }
+  button:active { transform:scale(.96); }
+  button.danger { color:var(--hot); margin-left:auto; }
+  button.danger:hover { border-color:var(--hot); background:color-mix(in srgb,var(--hot) 14%,transparent); }
+
+  .empty { grid-column:1/-1; text-align:center; padding:70px 0; color:var(--muted); }
+  #toasts { position:fixed; right:20px; bottom:20px; display:grid; gap:8px; z-index:9; }
+  .toast { background:var(--bg2); border:1px solid var(--line); border-left:3px solid var(--accent); padding:10px 14px; border-radius:10px;
+           box-shadow:0 8px 30px rgba(0,0,0,.35); animation:in .25s ease both; font-size:13px; }
+  .toast.err { border-left-color:var(--hot); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="grad">Claude</span> Session Control</h1>
+    <div class="right">
+      <div class="live"><span class="dot" id="dot"></span><span id="sub">connecting…</span></div>
+      <button id="theme" aria-label="Toggle light and dark theme" title="Toggle theme"></button>
+    </div>
+  </header>
+
+  <section class="summary" id="summary"></section>
+
+  <div class="toolbar">
+    <input id="q" type="search" placeholder="Search sessions, projects, models…">
+    <select id="sort">
+      <option value="total_tokens_raw">Sort: most tokens</option>
+      <option value="pressure">Sort: closest to limit</option>
+      <option value="elapsed_hours">Sort: longest running</option>
+      <option value="turns">Sort: most turns</option>
+      <option value="context_raw">Sort: biggest context</option>
+    </select>
+    <span class="chip" id="onlyRisk">Flagged only</span>
+  </div>
+
+  <div id="grid"></div>
+</div>
+<div id="toasts"></div>
+
+<script>
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? Math.round(n/1e3)+'K' : String(n);
+const $ = id => document.getElementById(id);
+let data = null, onlyRisk = false;
+const cards = new Map();   // session_id -> {el, html}
+
+function toast(msg, err) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (err ? ' err' : ''); t.textContent = msg;
+  $('toasts').appendChild(t); setTimeout(() => t.remove(), 3500);
+}
+
+async function act(action, sid, label) {
+  if (action === 'stop' && !confirm('End session "' + label + '"? A handover brief is saved first. Unsaved work in that window is lost.')) return;
+  const r = await fetch('/api/action', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action, session_id: sid})});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) toast(j.error || 'Action failed', true);
+  else if (j.handover) {
+    navigator.clipboard.writeText('Read ' + j.ai + ' (if missing, ' + j.handover + ') and continue the work.').catch(() => {});
+    toast((action === 'stop' ? 'Session ended. ' : '') + 'Handover saved, continue prompt copied: ' + j.handover.split('/').pop());
+  }
+  else toast({test:'Alert sent to macOS', snooze:'Snoozed for 1 hour', unsnooze:'Snooze cleared', stop:'Session ended'}[action]);
+  refresh();
+}
+function copyResume(sid) { navigator.clipboard.writeText('claude --resume ' + sid).then(() => toast('Resume command copied')); }
+
+const pressure = (r, d) => Math.max(r.elapsed_hours / d.risk_hours, r.turns / d.risk_turns);
+
+function ring(p, level) {
+  const R = 25, C = 2 * Math.PI * R, off = C * (1 - Math.min(1, p));
+  const col = level === 'risk' ? 'var(--hot)' : level === 'warn' ? 'var(--warn)' : 'var(--ok)';
+  return `<div class="ring"><svg width="62" height="62" viewBox="0 0 62 62"><circle class="bg" cx="31" cy="31" r="${R}"/>
+    <circle class="fg" cx="31" cy="31" r="${R}" stroke="${col}" stroke-dasharray="${C}" stroke-dashoffset="${off}"/></svg>
+    <em>${Math.round(p * 100)}%</em></div>`;
+}
+
+function cardHtml(r, d) {
+  const p = pressure(r, d), level = r.risk ? 'risk' : p >= .75 ? 'warn' : 'ok';
+  const id = esc(r.session_id), nm = esc(r.name).replace(/'/g, '&#39;');
+  const st = String(r.status).toLowerCase();
+  const stCls = st.includes('busy') || st.includes('run') || st.includes('work') ? 'busy' : 'idle';
+  const tp = Math.min(100, r.elapsed_hours / d.risk_hours * 100), np = Math.min(100, r.turns / d.risk_turns * 100);
+  return `<div class="top">
+      <div class="titles"><div class="name" title="${esc(r.name)}">${esc(r.name)}</div>
+        <div class="proj"><span>${esc(r.project)}</span><span class="pill ${stCls}"><i></i>${esc(r.status)}</span>${r.snoozed ? '<span class="pill snz">snoozed</span>' : ''}</div></div>
+      ${ring(p, level)}
+    </div>
+    <div class="rec ${esc(r.rec.level)}"><b>${esc(r.rec.title)}</b><span>${esc(r.rec.why)}</span></div>
+    <div class="meters">
+      <div class="meter"><span>Time</span><div class="track"><i class="${tp >= 100 ? 'hot' : ''}" style="width:${tp}%"></i></div><b>${esc(r.elapsed)} / ${d.risk_hours}h</b></div>
+      <div class="meter"><span>Turns</span><div class="track"><i class="${np >= 100 ? 'hot' : ''}" style="width:${np}%"></i></div><b>${r.turns} / ${d.risk_turns}</b></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>Context</span><b>${esc(r.context)}</b></div><div class="stat"><span>Total</span><b>${esc(r.total_tokens)}</b></div>
+      <div class="stat"><span>Cache</span><b>${esc(r.cache_read)}</b></div><div class="stat"><span>Output</span><b>${esc(r.output)}</b></div>
+    </div>
+    <div class="meta">${esc(r.model)} · ${esc(r.entrypoint)} · v${esc(r.version)} · pid ${r.pid} · active ${esc(r.last_active)}<br><code>${esc(r.cwd)}</code></div>
+    <div class="btns">
+      <button class="${r.rec.btn === 'handover' ? 'primary' : ''}" onclick="act('handover','${id}')">📋 Handover</button>
+      <button onclick="act('test','${id}')">🔔 Alert</button>
+      <button onclick="act('${r.snoozed ? 'unsnooze' : 'snooze'}','${id}')">${r.snoozed ? 'Unsnooze' : '💤 Snooze 1h'}</button>
+      <button onclick="copyResume('${id}')">Copy resume</button>
+      <button class="danger" onclick="act('stop','${id}','${nm}')">End</button>
+    </div>`;
+}
+
+function render() {
+  const d = data; if (!d) return;
+  const all = d.rows;
+  const flagged = all.filter(r => r.risk).length;
+  const tot = all.reduce((a, r) => a + r.total_tokens_raw, 0);
+  const ctx = all.reduce((a, r) => a + r.context_raw, 0);
+  $('summary').innerHTML =
+    `<div class="tile"><span>Live sessions</span><b>${all.length}</b></div>
+     <div class="tile ${flagged ? 'hot' : ''}"><span>Need /clear</span><b>${flagged}</b></div>
+     <div class="tile"><span>Total tokens</span><b>${fmt(tot)}</b></div>
+     <div class="tile"><span>Live context</span><b>${fmt(ctx)}</b></div>
+     <div class="tile"><span>Snoozed</span><b>${all.filter(r => r.snoozed).length}</b></div>`;
+
+  const q = $('q').value.trim().toLowerCase(), key = $('sort').value;
+  let rows = all.filter(r => (!onlyRisk || r.risk) &&
+    (!q || [r.name, r.project, r.model, r.cwd, r.status].join(' ').toLowerCase().includes(q)));
+  rows.sort((a, b) => key === 'pressure' ? pressure(b, d) - pressure(a, d) : b[key] - a[key]);
+
+  const g = $('grid');
+  if (!rows.length) { cards.clear(); g.innerHTML = `<div class="empty">${all.length ? 'No sessions match' : 'No Claude sessions running'}</div>`; return; }
+  g.querySelector('.empty')?.remove();
+  const keep = new Set(rows.map(r => r.session_id));
+  for (const [id, c] of cards) if (!keep.has(id)) { c.el.remove(); cards.delete(id); }
+  rows.forEach((r, i) => {
+    const html = cardHtml(r, d), cls = 'card ' + (r.risk ? 'risk' : pressure(r, d) >= .75 ? 'warn' : '');
+    let c = cards.get(r.session_id);
+    if (!c) { c = {el: document.createElement('div'), html: ''}; cards.set(r.session_id, c); }
+    if (c.html !== html) { c.el.innerHTML = html; c.html = html; }
+    c.el.className = cls + (c.el.dataset.seen ? '' : ' card'); c.el.dataset.seen = 1;
+    if (g.children[i] !== c.el) g.insertBefore(c.el, g.children[i] || null);
+  });
+}
+
+async function refresh() {
+  try {
+    data = await (await fetch('/api/status')).json();
+    $('dot').classList.remove('off');
+    $('sub').textContent = `live · updated ${data.generated_at} · flags at ${data.risk_hours}h or ${data.risk_turns} turns`;
+    render();
+  } catch (e) {
+    $('dot').classList.add('off'); $('sub').textContent = 'server unreachable — is it running?';
+  }
+}
+$('q').oninput = render; $('sort').onchange = render;
+$('onlyRisk').onclick = e => { onlyRisk = !onlyRisk; e.target.classList.toggle('on', onlyRisk); render(); };
+function paintTheme() { $('theme').textContent = document.documentElement.dataset.theme === 'light' ? '🌙' : '☀️'; }
+$('theme').onclick = () => {
+  const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = t; paintTheme();
+  try { localStorage.setItem('theme', t); } catch (e) {}
+};
+paintTheme();
+refresh(); setInterval(refresh, 5000);
+</script>
+</body>
+</html>
